@@ -123,3 +123,38 @@ def group_by(
         values = [r[agg_col] for r in gr]
         result[gk] = agg_fn(values)
     return result
+
+
+def dedup(rows: Iterable[dict], key: str) -> list[dict]:
+    """Return a list of rows with duplicates removed, keeping first occurrence.
+
+    Deduplication is based on the value of ``key``.  Original order is preserved.
+    Uses a ``set`` internally for O(1) look‑ups, so the memory footprint is
+    proportional to the number of distinct keys.
+
+    Args:
+        rows: Iterable of dictionaries.
+        key: The column whose value defines uniqueness.
+
+    Returns:
+        List of dicts in original order, without duplicates.
+
+    Raises:
+        KeyError: If any row is missing ``key``.
+
+    Example:
+        >>> rows = [{"id": 1, "x": "a"}, {"id": 2, "x": "b"}, {"id": 1, "x": "c"}]
+        >>> dedup(rows, "id")
+        [{'id': 1, 'x': 'a'}, {'id': 2, 'x': 'b'}]
+    """
+    seen = set()
+    result = []
+    for row in rows:
+        if key not in row:
+            raise KeyError(key)
+        val = row[key]
+        if val not in seen:
+            seen.add(val)
+            result.append(row)
+
+    return result

@@ -1,6 +1,6 @@
 from typing import Any, Callable
 import pytest
-from pingest.transforms.core import flatten, frequency, group_by
+from pingest.transforms.core import dedup, flatten, frequency, group_by
 from collections import Counter
 
 ROWS = [
@@ -90,3 +90,44 @@ def test_group_by_missing_agg_col() -> None:
     rows = [{"dept": "eng", "sal": 100}, {"dept": "eng"}]  # second row lacks "sal"
     with pytest.raises(KeyError):
         group_by(rows, "dept", agg_col="sal", agg_fn=sum)
+
+
+@pytest.mark.parametrize(
+    "rows, key, expected",
+    [
+        # Empty input
+        ([], "id", []),
+        # Single row
+        ([{"id": 1, "x": "a"}], "id", [{"id": 1, "x": "a"}]),
+        # No duplicates
+        (
+            [{"id": 1, "x": "a"}, {"id": 2, "x": "b"}],
+            "id",
+            [{"id": 1, "x": "a"}, {"id": 2, "x": "b"}],
+        ),
+        # Duplicates present – first occurrence kept, order preserved
+        (
+            [
+                {"id": 1, "x": "a"},
+                {"id": 2, "x": "b"},
+                {"id": 1, "x": "c"},
+                {"id": 3, "x": "d"},
+                {"id": 2, "x": "e"},
+            ],
+            "id",
+            [
+                {"id": 1, "x": "a"},
+                {"id": 2, "x": "b"},
+                {"id": 3, "x": "d"},
+            ],
+        ),
+        # All rows have the same key – only first survives
+        (
+            [{"id": 1, "x": "a"}, {"id": 1, "x": "b"}, {"id": 1, "x": "c"}],
+            "id",
+            [{"id": 1, "x": "a"}],
+        ),
+    ],
+)
+def test_dedup(rows, key, expected) -> None:
+    assert dedup(rows, key) == expected
