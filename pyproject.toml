@@ -7,7 +7,9 @@ authors = [
     { name = "datleXx", email = "dat91fitzz@gmail.com" }
 ]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "typer>=0.26.7",
+]
 
 [project.scripts]
 pingest = "pingest:main"
@@ -15,3 +17,8 @@ pingest = "pingest:main"
 [build-system]
 requires = ["uv_build>=0.11.19,<0.12.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.16",
+]
