@@ -1,5 +1,5 @@
-from collections import Counter
-from typing import Any, Dict, Iterable, Union
+from collections import Counter, defaultdict
+from typing import Any, Callable, Dict, Iterable, Union
 
 Record = Union[Dict[str, Any], list]
 
@@ -101,4 +101,25 @@ def frequency(rows: Iterable[dict], key: str) -> Counter:
         if key in row:
             result[row[key]] += 1
 
+    return result
+
+
+def group_by(
+    rows: Iterable[dict],
+    key: str,
+    agg_col: str | None = None,
+    agg_fn: Callable | None = None,
+) -> dict:
+    groups = defaultdict(list)
+    for row in rows:
+        group_key = row[key]
+        groups[group_key].append(row)
+
+    if agg_col is None or agg_fn is None:
+        return dict(groups)
+
+    result = {}
+    for gk, gr in groups.items():
+        values = [r[agg_col] for r in gr]
+        result[gk] = agg_fn(values)
     return result
