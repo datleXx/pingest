@@ -1,4 +1,5 @@
-from typing import Any, Dict, Union
+from collections import Counter
+from typing import Any, Dict, Iterable, Union
 
 Record = Union[Dict[str, Any], list]
 
@@ -79,5 +80,25 @@ def _flatten_stack(record: Record, sep) -> Dict[str, Any]:
 
         else:
             result[prefix] = value
+
+    return result
+
+
+def frequency(rows: Iterable[dict], key: str) -> Counter:
+    """Return a Counter of values for the given key across all rows.
+
+    Args:
+        rows: Iterable of dictionaries.
+        key: The field to count by.
+
+    Returns:
+        Counter mapping each unique value for `key` to its count.
+        Rows missing the key are skipped.
+    """
+    result = Counter()
+
+    for row in rows:
+        if key in row:
+            result[row[key]] += 1
 
     return result
