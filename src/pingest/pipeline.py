@@ -1,4 +1,3 @@
-import tracemalloc
 import itertools
 import functools
 from collections.abc import Callable, Iterable
@@ -62,6 +61,8 @@ def giant_source(n: int) -> Generator[dict, None, None]:
 
 
 if __name__ == "__main__":
+    import tracemalloc
+
     test_souce = giant_source(10_000_000)
 
     test_pipe_transform = functools.partial(
