@@ -8,28 +8,26 @@ from typing import Callable, Any
 logger = logging.getLogger(__name__)
 
 
-def timed(func):
+def timed(func: Callable) -> Callable:
     @functools.wraps(func)
-    def inner(*args, **kwargs):
+    def inner(*args: Any, **kwargs: Any) -> Any:
         t0 = time.perf_counter()
         result = func(*args, **kwargs)
         t1 = time.perf_counter()
-        duration = t1 - t0
-        logger.info(f"{func.__name__} completed in {duration:.3f}s")
+        logger.info(f"{func.__name__} completed in {t1 - t0:.3f}s")
         return result
 
     return inner
 
 
-def retry(times=3, backoff=1.0):
-    def decorate(func):
+def retry(times: int = 3, backoff: float = 1.0) -> Callable:
+    def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
-        def inner(*args, **kwargs):
+        def inner(*args: Any, **kwargs: Any) -> Any:
             last_exc: Exception | None = None
             for attempt in range(1, times + 1):
                 try:
-                    result = func(*args, **kwargs)
-                    return result
+                    return func(*args, **kwargs)
                 except Exception as e:
                     last_exc = e
                     logger.warning(
@@ -37,9 +35,18 @@ def retry(times=3, backoff=1.0):
                     )
                     if attempt < times:
                         time.sleep(backoff * attempt)
-            if last_exc:
-                raise last_exc
+            raise last_exc  # type: ignore[misc]
 
         return inner
 
-    return decorate
+    return decorator
+
+
+@contextmanager
+def timer(label: str = "block") -> Generator[None, None, None]:
+    t0 = time.perf_counter()
+    try:
+        yield
+    finally:
+        t1 = time.perf_counter()
+        logger.info(f"{label} completed in {t1 - t0:.3f}s")
