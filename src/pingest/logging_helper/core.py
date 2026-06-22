@@ -24,7 +24,9 @@ def get_logger(name: str) -> logging.Logger:
     logger.setLevel(logging.INFO)
 
     for handler in logger.handlers:
-        if isinstance(handler, logging.StreamHandler):
+        if isinstance(handler, logging.StreamHandler) and isinstance(
+            handler, JsonFormatter
+        ):
             return logger
 
     handler = logging.StreamHandler()

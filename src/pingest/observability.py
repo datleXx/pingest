@@ -13,9 +13,15 @@ def timed(func: Callable) -> Callable:
     @functools.wraps(func)
     def inner(*args: Any, **kwargs: Any) -> Any:
         t0 = time.perf_counter()
-        result = func(*args, **kwargs)
-        t1 = time.perf_counter()
-        logger.info(f"{func.__name__} completed in {t1 - t0:.3f}s")
+        try:
+            result = func(*args, **kwargs)
+        finally:
+            t1 = time.perf_counter()
+            duration_ms = (t1 - t0) * 1000
+            logger.info(
+                "Run completed",
+                extra={"name": func.__name__, "duration_ms": duration_ms},
+            )
         return result
 
     return inner
