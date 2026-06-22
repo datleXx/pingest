@@ -1,11 +1,12 @@
-import logging
+from datetime import datetime
 import time
 import functools
 from contextlib import contextmanager
 from collections.abc import Generator
 from typing import Callable, Any
+from pingest.logging_helper.core import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def timed(func: Callable) -> Callable:
@@ -50,3 +51,7 @@ def timer(label: str = "block") -> Generator[None, None, None]:
     finally:
         t1 = time.perf_counter()
         logger.info(f"{label} completed in {t1 - t0:.3f}s")
+
+
+if __name__ == "__main__":
+    logger.info("Test", extra={"when": datetime.now()})
