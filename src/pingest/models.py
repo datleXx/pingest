@@ -1,8 +1,8 @@
-import logging
 from typing import Generator, Iterable
 from pydantic import BaseModel, Field, ValidationError
+from pingest.logging_helper.core import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class TaxiRecord(BaseModel):
