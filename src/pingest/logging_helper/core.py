@@ -25,7 +25,7 @@ def get_logger(name: str) -> logging.Logger:
 
     for handler in logger.handlers:
         if isinstance(handler, logging.StreamHandler) and isinstance(
-            handler, JsonFormatter
+            handler.formatter, JsonFormatter
         ):
             return logger
 
