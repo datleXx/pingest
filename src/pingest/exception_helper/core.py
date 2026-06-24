@@ -9,6 +9,10 @@ class SourceError(IngestError):
     pass
 
 
+class SinkError(IngestError):
+    pass
+
+
 class ValidationError(IngestError):
     def __init__(self, record: dict[str, Any], field: str, reason: str) -> None:
         self.record = record

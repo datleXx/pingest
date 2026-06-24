@@ -20,7 +20,7 @@ def timed(func: Callable) -> Callable:
             duration_ms = (t1 - t0) * 1000
             logger.info(
                 "Run completed",
-                extra={"name": func.__name__, "duration_ms": duration_ms},
+                extra={"func_name": func.__name__, "duration_ms": duration_ms},
             )
         return result
 
