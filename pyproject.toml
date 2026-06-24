@@ -30,3 +30,8 @@ dev = [
     "pytest>=9.0.3",
     "ruff>=0.15.16",
 ]
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow (heavy data pipelines)",
+]
