@@ -12,6 +12,7 @@ from pingest.exception_helper.core import SourceError
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from pingest.logging_helper.core import get_logger
+from pingest.observability import timed
 
 logger = get_logger(__name__)
 
@@ -83,3 +84,13 @@ def fetch_pages_threaded(
                 failed_url.append(url)
 
     return records
+
+
+@timed
+def run_sequential(session, url):
+    return list(fetch_pages_sequential(session, url))
+
+
+@timed
+def run_threaded(session, base_url, total_pages, max_workers=5):
+    return fetch_pages_threaded(session, base_url, total_pages, max_workers)
