@@ -1,5 +1,6 @@
 from collections import Counter, defaultdict
 from typing import Any, Callable, Dict, Iterable, Union
+from math import sin, cos, radians, asin, sqrt
 
 Record = Union[Dict[str, Any], list]
 
@@ -158,3 +159,25 @@ def dedup(rows: Iterable[dict], key: str) -> list[dict]:
             result.append(row)
 
     return result
+
+
+def haversine(
+    pickup_lat: float, pickup_lon: float, dropoff_lat: float, dropoff_lon: float
+) -> float:
+    pickup_lat_rad = radians(pickup_lat)
+    pickup_lon_rad = radians(pickup_lon)
+    dropoff_lat_rad = radians(dropoff_lat)
+    dropoff_lon_rad = radians(dropoff_lon)
+
+    dlat = dropoff_lat_rad - pickup_lat_rad
+    dlon = dropoff_lon_rad - pickup_lon_rad
+
+    a = (
+        sin(dlat / 2) ** 2
+        + cos(pickup_lat_rad) * cos(dropoff_lat_rad) * sin(dlon / 2) ** 2
+    )
+    c = 2 * asin(sqrt(a))
+
+    distance = 6371 * c
+
+    return distance

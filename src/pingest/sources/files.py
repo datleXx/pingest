@@ -1,5 +1,4 @@
 import csv
-from typing import Iterator
 from pingest.logging_helper.core import get_logger
 from pingest.observability import timed
 from pingest.exception_helper.core import SourceError

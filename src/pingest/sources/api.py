@@ -6,7 +6,6 @@ from tenacity import (
     retry_if_exception,
     stop_after_attempt,
     wait_exponential_jitter,
-    retry_if_exception_type,
 )
 from pingest.exception_helper.core import SourceError
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -79,7 +78,7 @@ def fetch_pages_threaded(
                 res = future.result()
                 res_json = res.json()
                 records.extend(res_json["records"])
-            except SourceError as exc:
+            except SourceError:
                 logger.error("Failed to fetch", extra={"url": url})
                 failed_url.append(url)
 
