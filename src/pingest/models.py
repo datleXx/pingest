@@ -13,6 +13,10 @@ class TaxiRecord(BaseModel):
     trip_distance: float = Field(ge=0.0)
     fare_amount: float
     tip_amount: float = 0.0
+    pickup_lat: float = Field(ge=-90, le=90)
+    pickup_lon: float = Field(ge=-180, le=180)
+    dropoff_lat: float = Field(ge=-90, le=90)
+    dropoff_lon: float = Field(ge=-180, le=180)
 
 
 def validate(
