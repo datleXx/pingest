@@ -1,6 +1,8 @@
 import time
 from typing import Iterator
 import requests
+import httpx
+import asyncio
 from tenacity import (
     retry,
     retry_if_exception,
@@ -83,6 +85,50 @@ def fetch_pages_threaded(
                 failed_url.append(url)
 
     return records
+
+
+async def fetch_page(client: httpx.AsyncClient, url: str, semaphore: asyncio.Semaphore):
+    async with semaphore:
+        res = await client.get(url)
+    res.raise_for_status()
+    res_json = res.json()
+    return res_json["records"]
+
+
+"""
+1. Create an asyncio.Semaphore(max_concurrent)
+2. Open an httpx.AsyncClient with async with
+3. Build the list of all page URLs (same pattern as fetch_pages_threaded — ?page=i for i in 1..total_pages)
+4. Fire all fetches concurrently with asyncio.gather
+5. Flatten the results (gather returns a list of lists) and return
+
+Write the signature first: async def _run_async(...) — what arguments does it take?
+"""
+
+
+async def _run_async(base_url: str, max_concurrent: int = 5):
+    semaphore = asyncio.Semaphore(max_concurrent)
+    res_flatten = []
+    async with httpx.AsyncClient() as client:
+        first = await client.get(base_url)
+        first.raise_for_status()
+        first_parsed = first.json()
+        total_pages = first_parsed["total_pages"]
+        first_records = first_parsed["records"]
+        res_flatten.extend(first_records)
+        list_urls = [f"{base_url}?page={i}" for i in range(2, total_pages + 1)]
+        res = await asyncio.gather(
+            *[fetch_page(client, url, semaphore) for url in list_urls]
+        )
+
+    for rec in res:
+        res_flatten.extend(rec)
+
+    return res_flatten
+
+
+def run_async(base_url: str, max_concurrent: int = 5):
+    return asyncio.run(_run_async(base_url, max_concurrent))
 
 
 @timed
