@@ -1,8 +1,18 @@
 from collections import Counter, defaultdict
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import time
 from typing import Any, Callable, Dict, Iterable, Union
 from math import sin, cos, radians, asin, sqrt
 
+from pydantic_core.core_schema import float_schema
+
+from pingest.logging_helper.core import get_logger
+from pingest.models import TaxiRecord
+from pingest.pipeline import batched
+
 Record = Union[Dict[str, Any], list]
+
+logger = get_logger(__name__)
 
 
 def flatten(record: Record, iterative: bool = False, sep: str = ".") -> Dict[str, Any]:
@@ -181,3 +191,38 @@ def haversine(
     distance = 6371 * c
 
     return distance
+
+
+def _haversine_batch(records: list[tuple[float, float, float, float]]) -> list[float]:
+    return [haversine(*args) for args in records]
+
+
+def run_haversine_parallel(records: list[TaxiRecord], max_workers: int = 5):
+    start = time.perf_counter()
+    extracted_records = [
+        (r.pickup_lat, r.pickup_lon, r.dropoff_lat, r.dropoff_lon) for r in records
+    ]
+    batched_extracted_records = batched(
+        extracted_records, n=int(len(records) / max_workers)
+    )
+
+    res = []
+
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        futures = [
+            executor.submit(_haversine_batch, batch)
+            for batch in batched_extracted_records
+        ]
+
+        for future in as_completed(futures):
+            res.extend(future.result())
+
+    end = time.perf_counter()
+    duration = (end - start) * 1000
+
+    logger.info(
+        "Haversine parallel done",
+        extra={"duration_ms": duration, "max_workers": max_workers},
+    )
+
+    return res

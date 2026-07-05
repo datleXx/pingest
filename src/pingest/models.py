@@ -1,6 +1,7 @@
 from typing import Generator, Iterable
 from pydantic import BaseModel, Field, ValidationError
 from pingest.logging_helper.core import get_logger
+import random
 
 logger = get_logger(__name__)
 
@@ -31,3 +32,18 @@ def validate(
             logger.warning(
                 f"Invalid record skipped: {e.error_count()} error(s) | {record}"
             )
+
+
+def create_one_mock() -> TaxiRecord:
+    return TaxiRecord(
+        vendor_id="v1",
+        pickup_datetime="test",
+        dropoff_datetime="test",
+        fare_amount=0.0,
+        passenger_count=1,
+        trip_distance=0.0,
+        pickup_lat=random.uniform(40.5, 40.9),
+        pickup_lon=random.uniform(-74.3, 73.7),
+        dropoff_lat=random.uniform(40.5, 40.9),
+        dropoff_lon=random.uniform(-74.3, 73.7),
+    )
