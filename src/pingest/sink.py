@@ -72,3 +72,46 @@ def write_parquet(
                 "duration_ms": round((time.perf_counter() - start) * 1000, 2),
             },
         )
+
+
+"""
+  Now go to sink.py and add a new function write_parquet_partitioned that:
+
+  1. Takes a records iterator, path, partition_cols, and batch_size
+  2. Uses the same chunked batching pattern as write_parquet
+  3. Writes each batch with pq.write_to_dataset using existing_data_behavior="overwrite_or_ignore"
+
+  Don't touch the existing write_parquet function. Add a new one alongside it.
+"""
+
+
+def write_parquet_partitioned(records, path, partition_cols, batch_size):
+    records_written = 0
+    start = time.perf_counter()
+    try:
+        batches = _batched(records, batch_size)
+
+        for batch in batches:
+            logger.info("Iterating", extra={"batch": batch})
+            table = pa.Table.from_pylist(batch)
+            pq.write_to_dataset(
+                table,
+                path,
+                partition_cols=partition_cols,
+                existing_data_behavior="overwrite_or_ignore",
+            )
+            records_written += table.num_rows
+
+        return records_written
+
+    except (OSError, pa.ArrowException) as e:
+        raise SinkError(f"failed to write parquet to {path}: {e}") from e
+    finally:
+        logger.info(
+            "sink.write_complete",
+            extra={
+                "path": path,
+                "records_written": records_written,
+                "duration_ms": round((time.perf_counter() - start) * 1000, 2),
+            },
+        )
