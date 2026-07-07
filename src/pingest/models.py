@@ -2,6 +2,7 @@ from typing import Generator, Iterable
 from pydantic import BaseModel, Field, ValidationError
 from pingest.logging_helper.core import get_logger
 import random
+from datetime import datetime, timedelta
 
 logger = get_logger(__name__)
 
@@ -35,15 +36,17 @@ def validate(
 
 
 def create_one_mock() -> TaxiRecord:
+    pickup_datetime = datetime.now()
+    dropoff_datetime = pickup_datetime + timedelta(minutes=random.randint(5, 10))
     return TaxiRecord(
         vendor_id="v1",
-        pickup_datetime="test",
-        dropoff_datetime="test",
-        fare_amount=0.0,
+        pickup_datetime=pickup_datetime.isoformat(),
+        dropoff_datetime=dropoff_datetime.isoformat(),
+        fare_amount=random.uniform(5.0, 35.0),
         passenger_count=1,
-        trip_distance=0.0,
+        trip_distance=random.uniform(5.0, 20.0),
         pickup_lat=random.uniform(40.5, 40.9),
-        pickup_lon=random.uniform(-74.3, 73.7),
+        pickup_lon=random.uniform(-74.3, -73.7),
         dropoff_lat=random.uniform(40.5, 40.9),
-        dropoff_lon=random.uniform(-74.3, 73.7),
+        dropoff_lon=random.uniform(-74.3, -73.7),
     )
