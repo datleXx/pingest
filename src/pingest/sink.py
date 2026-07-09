@@ -1,13 +1,13 @@
+import csv
+import os
 import time
 from typing import Iterator
 
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+from pingest.exception_helper.core import SinkError
 from pingest.logging_helper.core import get_logger
-from pingest.exception_helper.core import (
-    SinkError,
-)
 
 logger = get_logger(__name__)
 
@@ -73,6 +73,39 @@ def write_parquet(
             },
         )
 
+
+
+def write_csv(records: list[dict], path: str) -> int:
+    start = time.perf_counter()
+    records_written = 0
+    try:
+        if not records:
+            raise SinkError(f"no records to write to {path}")
+        os.makedirs(path, exist_ok=True)
+        filepath = os.path.join(path, "data.csv")
+        with open(filepath, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=records[0].keys())
+            writer.writeheader()
+            writer.writerows(records)
+            records_written = len(records)
+        return records_written
+    except OSError as e:
+        raise SinkError(f"failed to write csv to {path}: {e}") from e
+    finally:
+        logger.info(
+            "sink.write_complete",
+            extra={
+                "path": path,
+                "records_written": records_written,
+                "duration_ms": round((time.perf_counter() - start) * 1000, 2),
+            },
+        )
+
+
+def write_records(records: list[dict], path: str, fmt: str, partition_cols: list[str], batch_size: int) -> int:
+    if fmt == "csv":
+        return write_csv(records, path)
+    return write_parquet_partitioned(records, path, partition_cols, batch_size)
 
 
 def write_parquet_partitioned(records, path, partition_cols, batch_size):

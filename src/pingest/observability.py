@@ -57,7 +57,3 @@ def timer(label: str = "block") -> Generator[None, None, None]:
     finally:
         t1 = time.perf_counter()
         logger.info(f"{label} completed in {t1 - t0:.3f}s")
-
-
-if __name__ == "__main__":
-    logger.info("Test", extra={"when": datetime.now()})

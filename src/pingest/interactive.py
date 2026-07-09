@@ -7,7 +7,7 @@ from pingest.config import settings
 from pingest.exception_helper.core import SinkError, SourceError
 from pingest.logging_helper.core import get_logger
 from pingest.models.soccer import FlatMatch, FlatScorer, FlatStanding
-from pingest.sink import write_parquet_partitioned
+from pingest.sink import write_records
 from pingest.sources.fetch import fetch_async, fetch_sequential, fetch_threaded
 from pingest.sources.soccer_api import SoccerApiClient
 
@@ -29,6 +29,10 @@ def _pick_competition(client: SoccerApiClient) -> tuple[str, str]:
     return code, name
 
 
+def _pick_format() -> str:
+    return questionary.select("Output format?", choices=["parquet", "csv"]).ask()
+
+
 def _pick_season() -> int:
     answer = questionary.text(
         "Which season? (enter start year)",
@@ -45,6 +49,7 @@ def _run_matches(client: SoccerApiClient) -> None:
         "Match status?",
         choices=["All", "FINISHED", "SCHEDULED", "LIVE"],
     ).ask()
+    fmt = _pick_format()
     output = settings.output_dir
 
     matches = client.get_competition_matches(
@@ -53,15 +58,20 @@ def _run_matches(client: SoccerApiClient) -> None:
         status=None if status == "All" else status,
     )
     records = [FlatMatch.from_api(m).model_dump() for m in matches]
-    write_parquet_partitioned(
-        records, output, partition_cols=["match_date"], batch_size=settings.batch_size
+    write_records(
+        records,
+        output,
+        fmt=fmt,
+        partition_cols=["match_date"],
+        batch_size=settings.batch_size,
     )
-    print(f"\n✓ Wrote {len(records)} matches for {name} {season} → {output}/")
+    print(f"\nWrote {len(records)} matches for {name} {season}/{output}/")
 
 
 def _run_standings(client: SoccerApiClient) -> None:
     code, name = _pick_competition(client)
     season = _pick_season()
+    fmt = _pick_format()
     output = settings.output_dir
 
     standings = client.get_standings(code, season=season)
@@ -76,18 +86,20 @@ def _run_standings(client: SoccerApiClient) -> None:
                 type=group["type"],
             )
             records.append(flat.model_dump())
-    write_parquet_partitioned(
+    write_records(
         records,
         output,
+        fmt=fmt,
         partition_cols=["competition_code"],
         batch_size=settings.batch_size,
     )
-    print(f"\n✓ Wrote {len(records)} standing rows for {name} {season} → {output}/")
+    print(f"\nWrote {len(records)} standing rows for {name} {season}/{output}/")
 
 
 def _run_scorers(client: SoccerApiClient) -> None:
     code, name = _pick_competition(client)
     season = _pick_season()
+    fmt = _pick_format()
     output = settings.output_dir
 
     scorers = client.get_scorers(code, season=season)
@@ -97,13 +109,14 @@ def _run_scorers(client: SoccerApiClient) -> None:
         ).model_dump()
         for s in scorers
     ]
-    write_parquet_partitioned(
+    write_records(
         records,
         output,
+        fmt=fmt,
         partition_cols=["competition_code"],
         batch_size=settings.batch_size,
     )
-    print(f"\nWrote {len(records)} scorers for {name} {season} → {output}/")
+    print(f"\nWrote {len(records)} scorers for {name} {season}/{output}/")
 
 
 def _run_team(client: SoccerApiClient) -> None:
@@ -116,6 +129,7 @@ def _run_team(client: SoccerApiClient) -> None:
         "Match status?",
         choices=["All", "FINISHED", "SCHEDULED"],
     ).ask()
+    fmt = _pick_format()
     output = settings.output_dir
 
     matches = client.get_team_matches(
@@ -124,10 +138,14 @@ def _run_team(client: SoccerApiClient) -> None:
         status=None if status == "All" else status,
     )
     records = [FlatMatch.from_api(m).model_dump() for m in matches]
-    write_parquet_partitioned(
-        records, output, partition_cols=["match_date"], batch_size=settings.batch_size
+    write_records(
+        records,
+        output,
+        fmt=fmt,
+        partition_cols=["match_date"],
+        batch_size=settings.batch_size,
     )
-    print(f"\nWrote {len(records)} matches for team {team_id_str} → {output}/")
+    print(f"\nWrote {len(records)} matches for team {team_id_str}/{output}/")
 
 
 def _flatten_standings(raw_standings: list[dict], code: str, season: int) -> list[dict]:
@@ -186,30 +204,34 @@ def _run_season_dump(client: SoccerApiClient) -> None:
         for s in scorers_raw
     ]
 
-    write_parquet_partitioned(
+    fmt = _pick_format()
+    write_records(
         match_records,
         output,
+        fmt=fmt,
         partition_cols=["match_date"],
         batch_size=settings.batch_size,
     )
-    write_parquet_partitioned(
+    write_records(
         standing_records,
         output,
+        fmt=fmt,
         partition_cols=["competition_code"],
         batch_size=settings.batch_size,
     )
-    write_parquet_partitioned(
+    write_records(
         scorer_records,
         output,
+        fmt=fmt,
         partition_cols=["competition_code"],
         batch_size=settings.batch_size,
     )
 
-    print(f"\n✓ Season dump complete in {elapsed:.2f}s [{mode}]")
+    print(f"\n Season dump complete in {elapsed:.2f}s [{mode}]")
     print(
         f"  {len(match_records)} matches  |  {len(standing_records)} standing rows  |  {len(scorer_records)} scorers"
     )
-    print(f"  → {output}/")
+    print(f" /{output}/")
 
 
 def _run_bulk_standings(client: SoccerApiClient) -> None:
@@ -228,6 +250,7 @@ def _run_bulk_standings(client: SoccerApiClient) -> None:
         "Fetch mode?",
         choices=["sequential", "threaded", "async"],
     ).ask()
+    fmt = _pick_format()
 
     print(f"\nFetching standings for {len(tasks)} competitions [{mode}]...")
 
@@ -246,17 +269,17 @@ def _run_bulk_standings(client: SoccerApiClient) -> None:
     for standings_raw, comp in zip(results, competitions):
         if standings_raw:
             all_records.extend(_flatten_standings(standings_raw, comp["code"], season))
-
-    write_parquet_partitioned(
+    write_records(
         all_records,
         output,
+        fmt=fmt,
         partition_cols=["competition_code"],
         batch_size=settings.batch_size,
     )
 
-    print(f"✓ Bulk standings complete in {elapsed:.2f}s [{mode}]")
+    print(f"Bulk standings complete in {elapsed:.2f}s [{mode}]")
     print(
-        f"  {len(all_records)} total rows across {len(competitions)} competitions → {output}/"
+        f"  {len(all_records)} total rows across {len(competitions)} competitions/{output}/"
     )
 
 
@@ -265,8 +288,8 @@ ACTIONS = {
     "Standings — fetch the league table": _run_standings,
     "Scorers — fetch top goalscorers": _run_scorers,
     "Team — fetch matches for a specific team": _run_team,
-    "Season dump — matches + standings + scorers in parallel": _run_season_dump,
-    "Bulk standings — all competitions at once (threaded/async demo)": _run_bulk_standings,
+    "Season dump — matches + standings + scorers": _run_season_dump,
+    "Bulk standings — all competitions at once": _run_bulk_standings,
 }
 
 
@@ -274,13 +297,13 @@ def _run_action(action_fn, client: SoccerApiClient) -> None:
     try:
         action_fn(client)
     except SourceError as e:
-        print(f"\n✗ API error: {e}")
+        print(f"\nAPI error: {e}")
         print("  Check your internet connection or API key.")
     except SinkError as e:
-        print(f"\n✗ Failed to write data: {e}")
+        print(f"\nFailed to write data: {e}")
         print(f"  Make sure the output directory '{settings.output_dir}' is writable.")
     except PydanticValidationError as e:
-        print(f"\n✗ Unexpected data format from API: {e}")
+        print(f"\nUnexpected data format from API: {e}")
         print("  The API may have changed its response shape.")
     except KeyboardInterrupt:
         print("\n  Cancelled.")
@@ -293,7 +316,7 @@ def start() -> None:
     try:
         client = _make_client()
     except SourceError as e:
-        print(f"✗ Could not connect to the API: {e}")
+        print(f"Could not connect to the API: {e}")
         print("  Check your FOOTBALL_API_KEY in .env")
         return
 
