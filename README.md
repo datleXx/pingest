@@ -59,6 +59,9 @@ Output goes to `data/out/` by default, partitioned by date or competition code.
 
 `PL` Premier League · `CL` Champions League · `BL1` Bundesliga · `SA` Serie A · `PD` La Liga · `FL1` Ligue 1 · and 7 more.
 
+## Notes
+Anything before 2022 season doesn't seem to work, so best playing with 2022 and beyond, it's a toy anyway 
+
 ## Stack
 
 Python 3.13 · PyArrow · Pydantic · Typer · Questionary
