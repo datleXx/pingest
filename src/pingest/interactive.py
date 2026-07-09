@@ -13,7 +13,7 @@ from pingest.sources.soccer_api import SoccerApiClient
 
 logger = get_logger(__name__)
 
-CURRENT_SEASON = 2024
+CURRENT_SEASON = 2026
 
 
 def _make_client() -> SoccerApiClient:
