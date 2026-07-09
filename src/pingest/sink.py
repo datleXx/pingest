@@ -92,7 +92,6 @@ def write_parquet_partitioned(records, path, partition_cols, batch_size):
         batches = _batched(records, batch_size)
 
         for batch in batches:
-            logger.info("Iterating", extra={"batch": batch})
             table = pa.Table.from_pylist(batch)
             pq.write_to_dataset(
                 table,

@@ -20,8 +20,7 @@ logger = get_logger(__name__)
 
 def should_retry(exception):
     if isinstance(exception, requests.HTTPError):
-        status = exception.response.status_code
-        return status >= 500
+        return exception.response is None or exception.response.status_code >= 500
 
     return True
 
@@ -31,9 +30,11 @@ def should_retry(exception):
     wait=wait_exponential_jitter(initial=1, max=10),
     retry=retry_if_exception(should_retry),
 )
-def _get_page(session: requests.Session, url: str) -> requests.Response:
+def _get_page(
+    session: requests.Session, url: str, params: dict | None = None
+) -> requests.Response:
     while True:
-        res = session.get(url)
+        res = session.get(url, params=params)
         if res.status_code == 429:
             wait = int(res.headers.get("Retry-After", 5))
             time.sleep(wait)
@@ -43,9 +44,11 @@ def _get_page(session: requests.Session, url: str) -> requests.Response:
     return res
 
 
-def get_page(session: requests.Session, url: str) -> requests.Response:
+def get_page(
+    session: requests.Session, url: str, params: dict | None = None
+) -> requests.Response:
     try:
-        return _get_page(session=session, url=url)
+        return _get_page(session=session, url=url, params=params)
     except requests.RequestException as exc:
         raise SourceError(f"Failed to fetch {url}") from exc
 
