@@ -50,6 +50,7 @@ def main(
     """Pingest — soccer data ingestion CLI."""
     if ctx.invoked_subcommand is None:
         from pingest.interactive import start
+
         start()
 
 
@@ -63,10 +64,17 @@ def ingest_matches(
 ):
     out = output or settings.output_dir
     client = _make_client()
-    tasks = [("get_competition_matches", {"competition": competition, "season": season, "status": status})]
+    tasks = [
+        (
+            "get_competition_matches",
+            {"competition": competition, "season": season, "status": status},
+        )
+    ]
     matches = _fetch(client, mode, tasks)[0]
     records = [FlatMatch.from_api(m).model_dump() for m in matches]
-    write_parquet_partitioned(records, out, partition_cols=["match_date"], batch_size=settings.batch_size)
+    write_parquet_partitioned(
+        records, out, partition_cols=["match_date"], batch_size=settings.batch_size
+    )
     typer.echo(f"Wrote {len(records)} matches for {competition} {season} → {out}/")
 
 
@@ -90,25 +98,38 @@ def ingest_standings(
                 type=group["type"],
             )
             records.append(flat.model_dump())
-    write_parquet_partitioned(records, out, partition_cols=["competition_code"], batch_size=settings.batch_size)
-    typer.echo(f"Wrote {len(records)} standing rows for {competition} {season} → {out}/")
+    write_parquet_partitioned(
+        records,
+        out,
+        partition_cols=["competition_code"],
+        batch_size=settings.batch_size,
+    )
+    typer.echo(
+        f"Wrote {len(records)} standing rows for {competition} {season} → {out}/"
+    )
 
 
 @app.command(name="ingest-scorers")
 def ingest_scorers(
     competition: str = typer.Option(..., help="Competition code e.g. PL"),
     season: int = typer.Option(..., help="Season start year e.g. 2024"),
-    limit: int = typer.Option(50, help="Number of top scorers to fetch"),
     output: str = typer.Option(None, help="Output directory"),
 ):
     out = output or settings.output_dir
     client = _make_client()
     scorers = client.get_scorers(competition, season=season, limit=limit)
     records = [
-        FlatScorer.from_api(s, competition_code=competition, season_start_year=season).model_dump()
+        FlatScorer.from_api(
+            s, competition_code=competition, season_start_year=season
+        ).model_dump()
         for s in scorers
     ]
-    write_parquet_partitioned(records, out, partition_cols=["competition_code"], batch_size=settings.batch_size)
+    write_parquet_partitioned(
+        records,
+        out,
+        partition_cols=["competition_code"],
+        batch_size=settings.batch_size,
+    )
     typer.echo(f"Wrote {len(records)} scorers for {competition} {season} → {out}/")
 
 
@@ -124,8 +145,21 @@ def ingest_team(
 ):
     out = output or settings.output_dir
     client = _make_client()
-    tasks = [("get_team_matches", {"team_id": team_id, "season": season, "status": status, "date_from": date_from, "date_to": date_to})]
+    tasks = [
+        (
+            "get_team_matches",
+            {
+                "team_id": team_id,
+                "season": season,
+                "status": status,
+                "date_from": date_from,
+                "date_to": date_to,
+            },
+        )
+    ]
     matches = _fetch(client, mode, tasks)[0]
     records = [FlatMatch.from_api(m).model_dump() for m in matches]
-    write_parquet_partitioned(records, out, partition_cols=["match_date"], batch_size=settings.batch_size)
+    write_parquet_partitioned(
+        records, out, partition_cols=["match_date"], batch_size=settings.batch_size
+    )
     typer.echo(f"Wrote {len(records)} matches for team {team_id} → {out}/")

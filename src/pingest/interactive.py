@@ -1,3 +1,5 @@
+import time
+
 import questionary
 from pydantic import ValidationError as PydanticValidationError
 
@@ -6,6 +8,7 @@ from pingest.exception_helper.core import SinkError, SourceError
 from pingest.logging_helper.core import get_logger
 from pingest.models.soccer import FlatMatch, FlatScorer, FlatStanding
 from pingest.sink import write_parquet_partitioned
+from pingest.sources.fetch import fetch_async, fetch_sequential, fetch_threaded
 from pingest.sources.soccer_api import SoccerApiClient
 
 logger = get_logger(__name__)
@@ -100,7 +103,7 @@ def _run_scorers(client: SoccerApiClient) -> None:
         partition_cols=["competition_code"],
         batch_size=settings.batch_size,
     )
-    print(f"\n✓ Wrote {len(records)} scorers for {name} {season} → {output}/")
+    print(f"\nWrote {len(records)} scorers for {name} {season} → {output}/")
 
 
 def _run_team(client: SoccerApiClient) -> None:
@@ -124,7 +127,137 @@ def _run_team(client: SoccerApiClient) -> None:
     write_parquet_partitioned(
         records, output, partition_cols=["match_date"], batch_size=settings.batch_size
     )
-    print(f"\n✓ Wrote {len(records)} matches for team {team_id_str} → {output}/")
+    print(f"\nWrote {len(records)} matches for team {team_id_str} → {output}/")
+
+
+def _flatten_standings(raw_standings: list[dict], code: str, season: int) -> list[dict]:
+    records = []
+    for group in raw_standings:
+        for row in group["table"]:
+            records.append(
+                FlatStanding.from_api(
+                    row,
+                    competition_code=code,
+                    season_start_year=season,
+                    stage=group["stage"],
+                    type=group["type"],
+                ).model_dump()
+            )
+    return records
+
+
+def _run_season_dump(client: SoccerApiClient) -> None:
+    """Fetch matches + standings + scorers for one competition in parallel.
+    Runs all three modes and prints timing so you can see the difference."""
+    code, name = _pick_competition(client)
+    season = _pick_season()
+    output = settings.output_dir
+
+    tasks = [
+        ("get_competition_matches", {"competition": code, "season": season}),
+        ("get_standings", {"competition": code, "season": season}),
+        ("get_scorers", {"competition": code, "season": season}),
+    ]
+
+    mode = questionary.select(
+        "Fetch mode?",
+        choices=["sequential", "threaded", "async"],
+    ).ask()
+
+    print(f"\nFetching matches + standings + scorers for {name} {season} [{mode}]...")
+    t0 = time.perf_counter()
+
+    if mode == "threaded":
+        results = fetch_threaded(client, tasks, max_workers=3)
+    elif mode == "async":
+        results = fetch_async(client, tasks)
+    else:
+        results = fetch_sequential(client, tasks)
+
+    elapsed = time.perf_counter() - t0
+    matches_raw, standings_raw, scorers_raw = results
+
+    match_records = [FlatMatch.from_api(m).model_dump() for m in matches_raw]
+    standing_records = _flatten_standings(standings_raw, code, season)
+    scorer_records = [
+        FlatScorer.from_api(
+            s, competition_code=code, season_start_year=season
+        ).model_dump()
+        for s in scorers_raw
+    ]
+
+    write_parquet_partitioned(
+        match_records,
+        output,
+        partition_cols=["match_date"],
+        batch_size=settings.batch_size,
+    )
+    write_parquet_partitioned(
+        standing_records,
+        output,
+        partition_cols=["competition_code"],
+        batch_size=settings.batch_size,
+    )
+    write_parquet_partitioned(
+        scorer_records,
+        output,
+        partition_cols=["competition_code"],
+        batch_size=settings.batch_size,
+    )
+
+    print(f"\n✓ Season dump complete in {elapsed:.2f}s [{mode}]")
+    print(
+        f"  {len(match_records)} matches  |  {len(standing_records)} standing rows  |  {len(scorer_records)} scorers"
+    )
+    print(f"  → {output}/")
+
+
+def _run_bulk_standings(client: SoccerApiClient) -> None:
+    """Fetch standings for ALL available competitions at once."""
+    season = _pick_season()
+    output = settings.output_dir
+
+    print("\nFetching all available competitions...")
+    competitions = client.get_competitions()
+    tasks = [
+        ("get_standings", {"competition": c["code"], "season": season})
+        for c in competitions
+    ]
+
+    mode = questionary.select(
+        "Fetch mode?",
+        choices=["sequential", "threaded", "async"],
+    ).ask()
+
+    print(f"\nFetching standings for {len(tasks)} competitions [{mode}]...")
+
+    t0 = time.perf_counter()
+
+    if mode == "threaded":
+        results = fetch_threaded(client, tasks, max_workers=len(tasks))
+    elif mode == "async":
+        results = fetch_async(client, tasks)
+    else:
+        results = fetch_sequential(client, tasks)
+
+    elapsed = time.perf_counter() - t0
+
+    all_records = []
+    for standings_raw, comp in zip(results, competitions):
+        if standings_raw:
+            all_records.extend(_flatten_standings(standings_raw, comp["code"], season))
+
+    write_parquet_partitioned(
+        all_records,
+        output,
+        partition_cols=["competition_code"],
+        batch_size=settings.batch_size,
+    )
+
+    print(f"✓ Bulk standings complete in {elapsed:.2f}s [{mode}]")
+    print(
+        f"  {len(all_records)} total rows across {len(competitions)} competitions → {output}/"
+    )
 
 
 ACTIONS = {
@@ -132,6 +265,8 @@ ACTIONS = {
     "Standings — fetch the league table": _run_standings,
     "Scorers — fetch top goalscorers": _run_scorers,
     "Team — fetch matches for a specific team": _run_team,
+    "Season dump — matches + standings + scorers in parallel": _run_season_dump,
+    "Bulk standings — all competitions at once (threaded/async demo)": _run_bulk_standings,
 }
 
 

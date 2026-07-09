@@ -57,7 +57,9 @@ class SoccerApiClient:
                 body = e.response.json()
             except Exception:
                 pass
-            raise SourceError(f"HTTP {e.response.status_code}: {body.get('message', str(e))}") from e
+            raise SourceError(
+                f"HTTP {e.response.status_code}: {body.get('message', str(e))}"
+            ) from e
         except requests.RequestException as e:
             raise SourceError(f"Request failed: {e}") from e
 
