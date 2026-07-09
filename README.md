@@ -38,19 +38,19 @@ Or use subcommands directly:
 
 ```bash
 # Premier League 2024 results
-uv run pingest ingest-matches --competition PL --season 2024 --status FINISHED
+uv run pingest ingest-matches --competition PL --season 2026 --status FINISHED
 
 # League table
-uv run pingest ingest-standings --competition PL --season 2024
+uv run pingest ingest-standings --competition PL --season 2026
 
 # Top scorers
-uv run pingest ingest-scorers --competition PL --season 2024
+uv run pingest ingest-scorers --competition PL --season 2026
 
 # All matches for a team (Real Madrid = 86)
-uv run pingest ingest-team --team-id 86 --season 2024
+uv run pingest ingest-team --team-id 86 --season 2026
 
 # Output as CSV instead of Parquet
-uv run pingest ingest-standings --competition PL --season 2024 --fmt csv
+uv run pingest ingest-standings --competition PL --season 2026 --fmt csv
 ```
 
 Output goes to `data/out/` by default, partitioned by date or competition code.
