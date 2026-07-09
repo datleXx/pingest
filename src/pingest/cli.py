@@ -13,7 +13,8 @@ logger = get_logger(__name__)
 app = typer.Typer(
     name="pingest",
     help="Pingest — soccer data ingestion CLI.",
-    no_args_is_help=True,
+    no_args_is_help=False,
+    invoke_without_command=True,
 )
 
 
@@ -37,6 +38,7 @@ def _fetch(client: SoccerApiClient, mode: str, tasks: list[tuple[str, dict]]) ->
 
 @app.callback()
 def main(
+    ctx: typer.Context,
     version: bool = typer.Option(
         None,
         "--version",
@@ -46,6 +48,9 @@ def main(
     ),
 ) -> None:
     """Pingest — soccer data ingestion CLI."""
+    if ctx.invoked_subcommand is None:
+        from pingest.interactive import start
+        start()
 
 
 @app.command(name="ingest-matches")

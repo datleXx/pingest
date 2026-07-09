@@ -74,16 +74,6 @@ def write_parquet(
         )
 
 
-"""
-  Now go to sink.py and add a new function write_parquet_partitioned that:
-
-  1. Takes a records iterator, path, partition_cols, and batch_size
-  2. Uses the same chunked batching pattern as write_parquet
-  3. Writes each batch with pq.write_to_dataset using existing_data_behavior="overwrite_or_ignore"
-
-  Don't touch the existing write_parquet function. Add a new one alongside it.
-"""
-
 
 def write_parquet_partitioned(records, path, partition_cols, batch_size):
     records_written = 0

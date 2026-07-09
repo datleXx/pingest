@@ -4,8 +4,8 @@ import time
 
 import requests
 
+from pingest.exception_helper.core import SourceError
 from pingest.logging_helper.core import get_logger
-from pingest.sources.api import get_page
 
 BASE_URL = "https://api.football-data.org/v4"
 logger = get_logger(__name__)
@@ -39,10 +39,27 @@ class SoccerApiClient:
         self._limiter = RateLimiter(calls_per_min)
         self._session.headers.update({"X-Auth-Token": api_key})
 
-    def _get(self, path: str, params: dict | None = None):
+    def _get(self, path: str, params: dict | None = None) -> dict:
         self._limiter.acquire()
-        response = get_page(self._session, BASE_URL + path, params)
-        return response.json()
+        try:
+            res = self._session.get(BASE_URL + path, params=params or {})
+            if res.status_code == 429:
+                wait = int(res.headers.get("Retry-After", 60))
+                logger.warning("rate_limited", extra={"retry_after_s": wait})
+                time.sleep(wait)
+                res = self._session.get(BASE_URL + path, params=params or {})
+            res.raise_for_status()
+            logger.info("api.request", extra={"path": path, "status": res.status_code})
+            return res.json()
+        except requests.HTTPError as e:
+            body = {}
+            try:
+                body = e.response.json()
+            except Exception:
+                pass
+            raise SourceError(f"HTTP {e.response.status_code}: {body.get('message', str(e))}") from e
+        except requests.RequestException as e:
+            raise SourceError(f"Request failed: {e}") from e
 
     def get_competitions(self, areas: str | None = None) -> list[dict]:
         params = {}
@@ -56,10 +73,8 @@ class SoccerApiClient:
             params["season"] = season
         return self._get(f"/competitions/{competition}/standings", params)["standings"]
 
-    def get_scorers(
-        self, competition: str, season: int | None = None, limit: int = 50
-    ) -> list[dict]:
-        params: dict = {"limit": limit}
+    def get_scorers(self, competition: str, season: int | None = None) -> list[dict]:
+        params: dict = {}
         if season:
             params["season"] = season
         return self._get(f"/competitions/{competition}/scorers", params)["scorers"]
